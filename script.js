@@ -3,8 +3,13 @@ const closeChatbot = document.querySelector("#close-chatbot");
 const messageInput = document.querySelector(".message-input");
 const fileInput = document.querySelector("#file-input");
 const fileUploadWrapper = document.querySelector(".file-upload-wrapper");
+const sendMessage = document.querySelector("#send-message");
+
 const fileCancelButton = fileUploadWrapper.querySelector("#file-cancel");
 const chatBody = document.querySelector(".chatbody");
+
+const API_KEY = "PASTE YOUR API KEY HERE";
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
 
 const userData = {
@@ -14,6 +19,8 @@ const userData = {
         mime_type:null,
     }
 }
+
+const chatHistory = [];
 
 
 //toggler event listner
@@ -28,15 +35,69 @@ closeChatbot.addEventListener("click",()=>{
     document.body.classList.remove("show-chatbot")
 });
 
-//api key setup
 
 
+//this will create a dynamic container with class message and return it 
 
 const createMessageElement = (content, ...classes) => {
     const div = document.createElement("div");
     div.classList.add("message", ...classes);
     div.innerHTML = content;
     return div;
+
+}
+
+//create or generate bot response using Gemini API
+
+const createBotResponse = async (incomingMessageDiv) => {
+    const messageElement = incomingMessageDiv.querySelector(".message-text");
+
+    chatHistory.push({
+        role: "user",
+        parts: [{ text: userData.message}, ...(userData.file.data ? [{ inline_data: userData.file }]: [])],
+    });
+
+    const requestOptions = {
+        method: "POST", 
+        headers: { "Content-type": "application/json" },
+        body: JSON.stringify({
+            contents: chatHistory,
+        })
+    }
+
+   
+    //create an api request 
+    try{
+        const response = await fetch (API_URL, requestOptions); 
+        const data = await response.json();
+        if(!response.ok) throw new Error(data.error.message);
+       // console.log("data", data);
+       
+    
+        const apiResponseText = data.candidates[0].content.parts[0].text;
+        messageElement.innerText = apiResponseText;
+    
+        //add bot response to chat history
+        chatHistory.push({
+            role: "model",
+            parts: [ { text: apiResponseText}],
+        })
+
+    } catch (error){
+        console.log(error);
+        messageElement.innerText = error.message;
+        messageElement.style.color = "red";
+    } finally{
+        //reset file data, remove thinking indicatore and scroll chat to bottom
+        userData.file = {};
+        incomingMessageDiv.classList.remove("thinking");
+        chatBody.scrollTo({top: chatBody.scrollHeight, behavior:"smooth"});
+    }
+   
+
+    
+
+    //extract and display bot's response text 
 
 }
 
@@ -56,6 +117,7 @@ const handleInputMessage = (e) =>{
         outgoingMessageDiv.querySelector(".message-text").innerHTML = userData.message;
       console.log(chatBody);
         chatBody.appendChild(outgoingMessageDiv);
+        chatBody.scrollTo({top: chatBody.scrollHeight, behavior:"smooth"});
 
         setTimeout(() => {
             const messageContent= ` <svg  class = "avatar" xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024">
@@ -63,12 +125,19 @@ const handleInputMessage = (e) =>{
                 </svg>
 
                 <div class="message-text">
+                    <div class="thinking-indicator">
                     <div class ="dot"></div>
+                    <div class ="dot"></div>
+                    <div class ="dot"></div>
+                     </div>
                 </div>`
 
 
             const incomingMessageDiv = createMessageElement(messageContent, "bot-message", "thinking");
             chatBody.appendChild(incomingMessageDiv);
+            chatBody.scrollTo({top: chatBody.scrollHeight, behavior:"smooth"});
+            //function to call gemeni api
+            createBotResponse(incomingMessageDiv);
         }, 600)
 
 }
@@ -84,14 +153,17 @@ if(e.key === "Enter" && userMessage && window.innerWidth > 768){
 })
 
 
-
+//add event listener on attach file icon which on click makes the file input clickable 
 document.querySelector("#file-upload").addEventListener("click", () => fileInput.click())
+
 fileInput.addEventListener("change", () =>{
     const file = fileInput.files[0];
     if(!file) return;
 
 //when file is sucessfully read then only it will trigger 
     const reader = new FileReader();
+    console.log(reader, "Reader");
+    
     reader.onload = (e) => {
         fileInput.value = "";
         fileUploadWrapper.querySelector("img").src = e.target.result;
@@ -104,7 +176,7 @@ fileInput.addEventListener("change", () =>{
             mime_type: file.type,
         }
 
-    }
+    };
     reader.readAsDataURL(file);
 })
 
@@ -115,3 +187,46 @@ fileCancelButton.addEventListener("click", () => {
     fileUploadWrapper.classList.remove("file-uploaded");
 
 })
+
+
+
+
+const initialInputHeight = messageInput.scrollHeight;
+
+//adjust input field height dinamically
+messageInput.addEventListener("input", () => {
+    messageInput.style.height = `${initialInputHeight}px`;
+    messageInput.style.height = `${messageInput.scroll.height}px`;
+    document.querySelector(".chat-form").style.borderRadius = messageInput.scrollHeight > initialInputHeight ? "15px": "32px";
+
+})
+
+
+//initialize emoji picker and handle emoji selection
+const picker = new EmojiMart.Picker({
+    theme: "light",
+    previewPosition: "none",
+    skinTonePosition: "none",
+    onEmojiSelect:(emoji) => {  
+        const { selectionStart: start, selectionEnd: end}= messageInput; // secetion start: tell us where is text selection secetion end
+        messageInput.setRangeText(emoji.native, start, end, "end");
+        messageInput.focus();
+
+    },
+    onClickOutside: (e) => {
+        if(e.target.id === "emoji-picker"){
+            document.body.classList.toggle ("show-emoji-picker");
+            
+        }else{
+            document.body.classList.remove("show-emoji-picker");
+        }
+    }
+})
+
+document.querySelector(".chat-form").appendChild(picker);
+
+// adding eventlistnere to call function so that user can click uparrow button to send message
+sendMessage.addEventListener("click", (e) => handleInputMessage(e));
+
+//add event listener on attach file icon which on click makes the file input clickable 
+document.querySelector("#file-upload").addEventListener("click", () => fileInput.click())
