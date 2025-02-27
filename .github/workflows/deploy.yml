@@ -23,7 +23,7 @@ jobs:
       # 3. Create an .env file with the secret API key
       - name: Create .env file
         run: |
-          echo "REACT_APP_API_KEY=${{ secrets.MY_API_KEY }}" >> .env
+          echo "API_KEY=${{ secrets.MY_API_KEY }}" >> .env
         shell: bash
 
       # 4. Install dependencies
