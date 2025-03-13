@@ -8,7 +8,8 @@ const sendMessage = document.querySelector("#send-message");
 const fileCancelButton = fileUploadWrapper.querySelector("#file-cancel");
 const chatBody = document.querySelector(".chatbody");
 
-const API_KEY = "PASTE YOUR API KEY HERE"; //add your api key here
+const API_KEY = "PASTE YOUR API KEY HERE";  
+//add your api key here
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
 
